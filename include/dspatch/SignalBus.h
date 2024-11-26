@@ -28,8 +28,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
-#include "../fast_any/any.h"
-
+#include <any>
 #include <vector>
 
 namespace DSPatch
@@ -62,7 +61,7 @@ public:
     void SetSignalCount( int signalCount );
     int GetSignalCount() const;
 
-    fast_any::any* GetSignal( int signalIndex );
+    std::any* GetSignal( int signalIndex );
 
     bool HasValue( int signalIndex ) const;
 
@@ -75,16 +74,16 @@ public:
     template <typename ValueType>
     void MoveValue( int signalIndex, ValueType&& newValue );
 
-    void SetSignal( int toSignalIndex, const fast_any::any& fromSignal );
-    void MoveSignal( int toSignalIndex, fast_any::any& fromSignal );
+    void SetSignal( int toSignalIndex, const std::any& fromSignal );
+    void MoveSignal( int toSignalIndex, std::any& fromSignal );
 
     void ClearValue( int signalIndex );
     void ClearAllValues();
 
-    fast_any::type_info GetType( int signalIndex ) const;
+    const std::type_info& GetType( int signalIndex ) const;
 
 private:
-    std::vector<fast_any::any> _signals;
+    std::vector<std::any> _signals;
 };
 
 inline SignalBus::SignalBus() = default;
@@ -106,7 +105,7 @@ inline int SignalBus::GetSignalCount() const
     return (int)_signals.size();
 }
 
-inline fast_any::any* SignalBus::GetSignal( int signalIndex )
+inline std::any* SignalBus::GetSignal( int signalIndex )
 {
     // You might be thinking: Why the raw pointer return here?
 
@@ -131,7 +130,14 @@ inline ValueType* SignalBus::GetValue( int signalIndex ) const
 
     // See: GetSignal().
 
-    return _signals[signalIndex].as<ValueType>();
+    try
+    {
+        return const_cast<ValueType*>( &std::any_cast<const ValueType&>( _signals[signalIndex] ) );
+    }
+    catch ( const std::exception& )
+    {
+        return nullptr;
+    }
 }
 
 template <typename ValueType>
@@ -146,12 +152,12 @@ inline void SignalBus::MoveValue( int signalIndex, ValueType&& newValue )
     _signals[signalIndex].emplace<ValueType>( std::forward<ValueType>( newValue ) );
 }
 
-inline void SignalBus::SetSignal( int toSignalIndex, const fast_any::any& fromSignal )
+inline void SignalBus::SetSignal( int toSignalIndex, const std::any& fromSignal )
 {
-    _signals[toSignalIndex].emplace( fromSignal );
+    _signals[toSignalIndex] = fromSignal;
 }
 
-inline void SignalBus::MoveSignal( int toSignalIndex, fast_any::any& fromSignal )
+inline void SignalBus::MoveSignal( int toSignalIndex, std::any& fromSignal )
 {
     // You might be thinking: Why swap and not move here?
 
@@ -179,7 +185,7 @@ inline void SignalBus::ClearAllValues()
     }
 }
 
-inline fast_any::type_info SignalBus::GetType( int signalIndex ) const
+inline const std::type_info& SignalBus::GetType( int signalIndex ) const
 {
     return _signals[signalIndex].type();
 }
